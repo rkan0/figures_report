@@ -1,0 +1,108 @@
+---
+title: "Basic template for project report"
+
+output: 
+  html_document:
+    number_sections: true
+    toc: true
+    toc_float: true
+    theme: paper
+  #  highlight: kate
+  #   fig_caption: yes
+  #   fig_width: 7
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+#library(plyr)
+library(tidyverse)
+#library(extrafont)
+#loadfonts(device = "win", quiet = TRUE)
+library(ganttrify)
+#library(ggnewscale)
+#library(ggrepel)
+#library(showtext)
+```
+
+# Project overview
+
+This is a short overview of the purpose of the project. The planned objectives are: 
+
+1. Objective 1
+
+2. Objective 2 
+
+## Overview of plan {.tabset .tabset-pills}
+### Gantt 
+```{r echo=FALSE}
+gantt <- data.frame(wp = c("Phase 1", "Phase 2", "Phase 2", "Phase 3", "Phase 4"),
+                    activity = c("Analysis", "Design", "Development", "Testing", "Deployment"),
+                    start_date = c("2022-01", "2022-04", "2022-05", "2022-06", "2023-03"),
+                    end_date = c("2022-03", "2022-05", "2022-07", "2023-03", '2023-05'))
+ganttrify(project = gantt,
+         # spots = gantt,
+          by_date = TRUE, hide_wp = TRUE, show_vertical_lines = FALSE,
+          project_start_date = "2022-01"
+          )
+```
+
+### Milestones
+```{r echo=FALSE}
+Phase <- c("Phase 1", "Phase 2", "Phase 3", "Phase 4")
+Goal <- c("Analysis", "Design and development", "Testing", "Deployment")
+Milestone <- c("Data roadmap",  "Code based on data model", "Pass all QC procedures", "Implementation across all work stations")
+Status <- c("Completed 10-3-22",  "Completed 10-7-22", "In progress", "Scheduled 10-3-24")
+data.frame(Phase, Goal, Milestone, Status) %>% 
+  knitr::kable()
+
+```
+
+
+
+# Expenses
+
+Add monthly breakdown of expenses by category - transform from long format, add row and column for total (~PivotTable in Excel), convert currency.
+
+```{r echo=FALSE}
+# create df
+expenses_df <- data.frame(
+  category = sample(c("Fruit", "Vegetable", "Bread"), size = 80, replace = TRUE), 
+  source = sample(c("A", "B"), size = 80, replace = TRUE), 
+  currency = sample(c("EUR", "USD"), size = 80, replace = TRUE), 
+  amount = sample(50:1000, size = 80, replace = FALSE), 
+  Month = sample(1:9, size = 80, replace = TRUE),
+  item = "item"
+)
+
+expenses_df <- expenses_df %>% mutate(item = case_when(
+  category == "Fruit" ~ sample(c("Star fruit", "Dragon fruit", "Passion fruit"), size = 80, replace = TRUE),
+  category == "Vegetable" ~ sample(c("Sweet potato", "Lotus root", "Goya"), size = 80, replace = TRUE),
+  category == "Vegetable" ~ sample(c("Semmel", "Krapfen", "Weckerl"), size = 80, replace = TRUE)
+))
+
+
+# begin manipulation
+expenses <- expenses_df %>%
+  mutate(cost_eur = ifelse(currency == "USD", amount * 1.1, amount)) %>%
+  # needed as to bind char to what was originally int
+  mutate(Month = as.character(Month))%>% 
+  # so that entry 'total' is added as a character under column 'month'
+  bind_rows(group_by(., category) %>%
+              summarise(cost_eur = sum(cost_eur)) %>%
+              mutate(Month = 'Total')) %>%
+  #create and bind a row that for every 'category' calculates 'sum' with the entry in column 'month' being 'total'
+  group_by(Month, category) %>%
+  summarise(Cost = sum(cost_eur)) %>%
+  #squash so that there is only one value per category per month
+  pivot_wider(names_from = "category", values_from = "Cost") %>%
+  #the rows of totals created by bind_rows will be pivoted into one row because they were entered as a 'month'
+  mutate(Total = rowSums(across(Fruit:Vegetable), na.rm = TRUE)) %>%
+  replace(is.na(.), 0) %>%
+  #calculate sum for each row across several columns
+  arrange(as.numeric(Month)) %>%
+  knitr::kable(format = "html", table.attr = "style='width:30%;'", digits = 0, format.args = list(big.mark = "."))
+expenses
+
+```
+
+
